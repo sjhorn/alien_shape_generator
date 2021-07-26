@@ -3,6 +3,8 @@ import 'dart:core';
 
 import 'package:flutter/material.dart';
 
+import 'algo.dart';
+
 const List<MaterialColor> colorOptions = <MaterialColor>[
   Colors.lightBlue,
   Colors.red,
@@ -22,24 +24,6 @@ const List<MaterialColor> colorOptions = <MaterialColor>[
   Colors.orange,
   Colors.deepPurple,
   Colors.blueGrey,
-];
-
-class Algo {
-  final String name;
-  final double Function(num) function;
-  const Algo(this.name, this.function);
-}
-
-List<Algo> algos = [
-  Algo("Random Function", (num i) => Math.Random(i.toInt()).nextDouble()),
-  Algo("Tangent", Math.tan),
-  Algo("Cosine", Math.cos),
-  Algo("Sine", Math.sin),
-  Algo("ATangent", Math.atan),
-  Algo("Square Root", Math.sqrt),
-  Algo("Wildcard of all", (num i) {
-    return algos[Math.Random(i.toInt()).nextInt(6)].function(i);
-  }),
 ];
 
 class Alien {

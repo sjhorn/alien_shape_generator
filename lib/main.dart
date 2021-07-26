@@ -1,24 +1,17 @@
-import 'dart:io';
 import 'dart:typed_data';
-
+import 'package:adaptive_breakpoints/adaptive_breakpoints.dart';
+import 'package:alien_shape_generator/slider_with_keyboard_focus.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-
-import 'alien.dart';
 import 'dart:math' as Math;
 import 'dart:ui' as ui;
 
-import 'package:file_picker_cross/file_picker_cross.dart';
-// import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
-
-import 'package:permission_handler/permission_handler.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
-
-import 'package:share_plus/share_plus.dart';
-import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'algo.dart';
+import 'alien_painter.dart';
+import 'save_and_share.dart';
 
 void main() {
-  runApp(MyHomePage());
+  runApp(MaterialApp(
+      theme: ThemeData(brightness: Brightness.dark), home: MyHomePage()));
 }
 
 class MyHomePage extends StatefulWidget {
@@ -70,206 +63,171 @@ class _MyHomePageState extends State<MyHomePage>
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-        theme: ThemeData(brightness: Brightness.dark),
-        home: SafeArea(
-            child: Scaffold(
-          backgroundColor: Colors.black,
-          appBar: AppBar(title: Text("Alien Shape Generator")),
-          floatingActionButton:
-              Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-            FloatingActionButton(
-              onPressed: () async {
-                // Directory appDocDir = await getApplicationDocumentsDirectory();
-                // File file = File("${appDocDir.path}/Example3.png");
-                // await file.create();
-                // await file.writeAsBytes(await getImageData(),
-                //     flush: true);
+    return SafeArea(
+        child: Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(title: Text("Alien Shape Generator")),
+            floatingActionButton:
+                Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+              FloatingActionButton(
+                onPressed: () =>
+                    SaveAndShare.toGallery(context, getImageData()),
+                child: const Icon(Icons.image),
+                backgroundColor: Colors.green,
+              ),
+              SizedBox(
+                height: 10,
+              ),
+              FloatingActionButton(
+                onPressed: () => SaveAndShare.save(context, getImageData()),
+                child: const Icon(Icons.download),
+                backgroundColor: Colors.green,
+              ),
+              SizedBox(
+                height: 10,
+              ),
+              FloatingActionButton(
+                key: buttonKey,
+                child: Icon(Icons.ios_share),
+                onPressed: () =>
+                    SaveAndShare.share(context, getImageData(), buttonKey),
+                backgroundColor: Colors.blue,
+              )
+            ]),
+            drawer: _isLargeScreen(context) ? null : _drawer(),
+            body: _isLargeScreen(context)
+                ? Row(children: [_drawer(), Expanded(child: _body())])
+                : _body()));
+  }
 
-                print("requesting permissions");
-                //if (await Permission.storage.request().isGranted) {
-                //print(await ImageGallerySaver.saveImage(await getImageData()));
+  Widget _body() {
+    return AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          return CustomPaint(
+            child: Container(),
+            painter: getPainter(),
+          );
+        });
+  }
 
-                try {
-                  FilePickerCross file = FilePickerCross(
-                    await getImageData(),
-                    type: FileTypeCross.image,
-                  );
-                  print(await file.exportToStorage(
-                      fileName: "Example.png",
-                      text: "Save the screenshot",
-                      subject: "Alien Generator Screenshot"));
-                } on FileSelectionCanceledError catch (e) {
-                  print("Cancelled!!");
-                }
-                // } else {
-                //   print("not granted...");
-                // }
-              },
-              child: const Icon(Icons.download),
-              backgroundColor: Colors.green,
-            ),
-            SizedBox(
-              height: 10,
-            ),
-            FloatingActionButton(
-              key: buttonKey,
-              child: Icon(Icons.ios_share),
-              onPressed: () async {
-                Directory tempDir = await getTemporaryDirectory();
-                File file = File("${tempDir.path}/Example3.png");
-                await file.create();
-                await file.writeAsBytes(await getImageData(), flush: true);
-                Offset pos = ContextUtils.getOffsetFromContext(
-                    buttonKey.currentContext!);
-                print(pos);
-                Share.shareFiles([file.path],
-                    text: 'Alien Shapes',
-                    sharePositionOrigin: Rect.fromLTWH(pos.dx, pos.dy, 1, 1));
-                // final params = SaveFileDialogParams(sourceFilePath: file.path);
-                // final filePath =
-                //     await FlutterFileDialog.saveFile(params: params);
-                //print(filePath);
-              },
-              backgroundColor: Colors.blue,
-            )
-          ]),
-          drawer: Drawer(
-              child: ListView(
-            padding: EdgeInsets.zero,
-            children: ListTile.divideTiles(
-              context: context,
-              tiles: <Widget>[
-                Divider(),
-                ListTile(
-                    title: const Text("Number of pixels"),
-                    subtitle: Slider(
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.blueGrey,
-                      value: _pixels,
-                      min: 3,
-                      max: 13,
-                      divisions: 10,
-                      label: _pixels.round().toString(),
-                      onChanged: (double value) {
-                        setState(() {
-                          _pixels = value;
-                        });
-                      },
-                    )),
-                ListTile(
-                    title: const Text("Number of aliens"),
-                    subtitle: Slider(
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.blueGrey,
-                      value: _alienCount,
-                      min: 1,
-                      max: 100,
-                      divisions: 100,
-                      label: _alienCount.round().toString(),
-                      onChanged: (double value) {
-                        setState(() {
-                          _alienCount = value;
-                        });
-                      },
-                    )),
-                ListTile(
-                    title: const Text("Starting offset"),
-                    subtitle: Slider(
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.blueGrey,
-                      value: _startingOffset,
-                      min: 0,
-                      max: 100,
-                      divisions: 100,
-                      label: _startingOffset.round().toString(),
-                      onChanged: (double value) {
-                        setState(() {
-                          _startingOffset = value;
-                        });
-                      },
-                    )),
-                ListTile(
-                    title: const Text("Seed Increment"),
-                    subtitle: Slider(
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.blueGrey,
-                      value: _seedIncrement,
-                      min: 1,
-                      max: 10,
-                      divisions: 10,
-                      label: _seedIncrement.round().toString(),
-                      onChanged: (double value) {
-                        setState(() {
-                          _seedIncrement = value;
-                        });
-                      },
-                    )),
-                ListTile(
-                    title: const Text("Seed Multipler"),
-                    subtitle: Slider(
-                      activeColor: Colors.white,
-                      inactiveColor: Colors.blueGrey,
-                      value: _seedMultiplier,
-                      min: 1,
-                      max: 10,
-                      divisions: 10,
-                      label: _seedMultiplier.round().toString(),
-                      onChanged: (double value) {
-                        setState(() {
-                          _seedMultiplier = value;
-                        });
-                      },
-                    )),
-                Divider(),
-                ListTile(
-                    title: const Text("Alogirithm"),
-                    subtitle: DropdownButton(
-                        value: _algo,
-                        items: algos
-                            .map((Algo val) => DropdownMenuItem(
-                                value: val, child: Text(val.name)))
-                            .toList(),
-                        onChanged: (Algo? value) {
-                          setState(() {
-                            _algo = value;
-                          });
-                        })),
-                Divider(),
-                SwitchListTile(
-                  title: const Text("Animate"),
-                  value: _animate,
-                  onChanged: (bool value) {
+  Widget _drawer() {
+    return Drawer(
+        child: ListView(
+      padding: EdgeInsets.zero,
+      children: ListTile.divideTiles(
+        context: context,
+        tiles: <Widget>[
+          Container(height: 30),
+          ListTile(
+              title: const Text("Number of pixels"),
+              subtitle: SliderWithKeyboardFocus(
+                autofocus: true,
+                value: _pixels,
+                min: 3,
+                max: 13,
+                divisions: 10,
+                label: _pixels.round().toString(),
+                onChanged: (double value) {
+                  setState(() {
+                    _pixels = value;
+                  });
+                },
+              )),
+          ListTile(
+              title: const Text("Number of aliens"),
+              subtitle: SliderWithKeyboardFocus(
+                value: _alienCount,
+                min: 1,
+                max: 100,
+                divisions: 100,
+                label: _alienCount.round().toString(),
+                onChanged: (double value) {
+                  setState(() {
+                    _alienCount = value;
+                  });
+                },
+              )),
+          ListTile(
+              title: const Text("Starting offset"),
+              subtitle: SliderWithKeyboardFocus(
+                value: _startingOffset,
+                min: 0,
+                max: 100,
+                divisions: 100,
+                label: _startingOffset.round().toString(),
+                onChanged: (double value) {
+                  setState(() {
+                    _startingOffset = value;
+                  });
+                },
+              )),
+          ListTile(
+              title: const Text("Seed Increment"),
+              subtitle: SliderWithKeyboardFocus(
+                value: _seedIncrement,
+                min: 1,
+                max: 10,
+                divisions: 10,
+                label: _seedIncrement.round().toString(),
+                onChanged: (double value) {
+                  setState(() {
+                    _seedIncrement = value;
+                  });
+                },
+              )),
+          ListTile(
+              title: const Text("Seed Multipler"),
+              subtitle: SliderWithKeyboardFocus(
+                value: _seedMultiplier,
+                min: 1,
+                max: 10,
+                divisions: 10,
+                label: _seedMultiplier.round().toString(),
+                onChanged: (double value) {
+                  setState(() {
+                    _seedMultiplier = value;
+                  });
+                },
+              )),
+          ListTile(
+              title: const Text("Alogirithm"),
+              subtitle: DropdownButton(
+                  value: _algo,
+                  items: algos
+                      .map((Algo val) =>
+                          DropdownMenuItem(value: val, child: Text(val.name)))
+                      .toList(),
+                  onChanged: (Algo? value) {
                     setState(() {
-                      _animate = value;
+                      _algo = value;
                     });
-                  },
-                ),
-                SwitchListTile(
-                  title: const Text("Alternate Direction"),
-                  value: _alternateDirection,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _alternateDirection = value;
-                    });
-                  },
-                ),
-              ],
-            ).toList(),
-          )),
-          body: AnimatedBuilder(
-              animation: _animation,
-              builder: (context, child) {
-                return CustomPaint(
-                  child: Container(),
-                  painter: getPainter(),
-                );
-              }),
-        )));
+                  })),
+          SwitchListTile(
+            title: const Text("Animate"),
+            value: _animate,
+            onChanged: (bool value) {
+              setState(() {
+                _animate = value;
+              });
+            },
+          ),
+          SwitchListTile(
+            title: const Text("Alternate Direction"),
+            value: _alternateDirection,
+            onChanged: (bool value) {
+              setState(() {
+                _alternateDirection = value;
+              });
+            },
+          ),
+        ],
+      ).toList(),
+    ));
   }
 
   CustomPainter getPainter() {
-    return Painter(
+    return AlienPainter(
         toggle: _animate ? _animation.value > 0.5 : false,
         alienCount: _alienCount.toInt(),
         pixels: _pixels.toInt(),
@@ -279,99 +237,9 @@ class _MyHomePageState extends State<MyHomePage>
         seedMultiplier: Math.pow(10, _seedMultiplier).toInt(),
         algo: _algo == null ? algos[0] : _algo!);
   }
-}
 
-class Painter extends CustomPainter {
-  late int alienCount;
-  late bool toggle;
-  late bool alternateDirection;
-  int pixels;
-  int startingOffset;
-  int seedIncrement;
-  int seedMultiplier;
-  Algo algo;
-
-  Painter(
-      {this.toggle = true,
-      this.alienCount = 1,
-      this.alternateDirection = true,
-      this.pixels = 3,
-      this.startingOffset = 0,
-      this.seedIncrement = 1,
-      this.seedMultiplier = 10000,
-      required this.algo});
-
-  int fitSquares(double x, double y, int n) {
-    double sx, sy;
-
-    double px = (Math.sqrt(n * x / y)).ceilToDouble();
-    if ((px * y / x).floor() * px < n) {
-      sx = y / (px * y / x).ceil();
-    } else {
-      sx = x / px;
-    }
-
-    double py = Math.sqrt(n * y / x).ceilToDouble();
-    if ((py * x / y).floor() * py < n) {
-      sy = x / (x * py / y).ceil();
-    } else {
-      sy = y / py;
-    }
-
-    return Math.max(sx, sy).toInt();
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    //List<Alien> aliens = [];
-    int itemWidth = fitSquares(size.width, size.height, alienCount);
-    int columns = Math.min(size.width ~/ itemWidth, alienCount);
-    int rows = (alienCount - 1) ~/ columns + 1;
-    int centeringX = (size.width - columns * itemWidth) ~/ 2;
-    int centeringY = (size.height - rows * itemWidth) ~/ 2;
-
-    for (int i = 0; i < alienCount; i += 1) {
-      Alien(
-          seed: i + startingOffset,
-          logicalSize: pixels,
-          colorOrdinal: i ~/ columns,
-          seedIncrement: seedIncrement,
-          seedMultiplier: seedMultiplier,
-          algo: algo)
-        ..drawInvader(
-            toggle,
-            alternateDirection ? i ~/ columns % 2 == 0 : false,
-            canvas,
-            itemWidth,
-            (i % columns * itemWidth) + centeringX,
-            (i ~/ columns * itemWidth) + centeringY);
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => true;
-}
-
-class ContextUtils {
-  // Takes a key, and in 1 frame, returns the size of the context attached to the key
-  static void getFutureSizeFromGlobalKey(
-      GlobalKey key, Function(Size size) callback) {
-    Future.microtask(() {
-      if (key.currentContext == null) return;
-      Size size = getSizeFromContext(key.currentContext!);
-      callback(size);
-    });
-  }
-
-  // Shortcut to get the renderBox size from a context
-  static Size getSizeFromContext(BuildContext context) {
-    RenderBox rb = context.findRenderObject() as RenderBox;
-    return rb.size;
-  }
-
-  // Shortcut to get the global position of a context
-  static Offset getOffsetFromContext(BuildContext context, [Offset? offset]) {
-    RenderBox rb = context.findRenderObject() as RenderBox;
-    return rb.localToGlobal(offset ?? Offset.zero);
-  }
+  bool _isLargeScreen(BuildContext context) =>
+      getWindowType(context) >= AdaptiveWindowType.large;
+  bool _isMediumScreen(BuildContext context) =>
+      getWindowType(context) == AdaptiveWindowType.medium;
 }
